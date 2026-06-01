@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { ensureAmbient } from '../../utils/ambient'
 
 export class NotebookScene extends Phaser.Scene {
   private currentPage = 0
@@ -9,6 +10,7 @@ export class NotebookScene extends Phaser.Scene {
   }
 
   create() {
+    ensureAmbient(this)
     const saved = localStorage.getItem('gameProgress')
     if (saved) {
       const progress = JSON.parse(saved)

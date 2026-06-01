@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
 import { TILE_SIZE } from '../config'
+import { sfxFootstep } from '../../utils/sfx'
 
 export class Player {
   sprite: Phaser.Physics.Arcade.Sprite
@@ -75,6 +76,7 @@ export class Player {
     if (vx !== 0 || vy !== 0) {
       const len = Math.sqrt(vx * vx + vy * vy)
       body.setVelocity((vx / len) * this.speed, (vy / len) * this.speed)
+      sfxFootstep()
     }
   }
 

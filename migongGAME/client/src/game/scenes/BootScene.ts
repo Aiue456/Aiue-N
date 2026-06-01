@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
 import { TILE_SIZE } from '../config'
+import { initAudio } from '../../utils/sfx'
 
 export class BootScene extends Phaser.Scene {
   private nextScene = 'MenuScene'
@@ -22,7 +23,21 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
+  preload() {
+    // Ambient background audio (shared across all scenes)
+    this.load.audio('ambient_rain', 'audio/ambient_rain.mp3')
+  }
+
   create() {
+    // Unlock AudioContext on first user interaction
+    const unlockAudio = () => {
+      initAudio()
+      document.removeEventListener('pointerdown', unlockAudio)
+      document.removeEventListener('keydown', unlockAudio)
+    }
+    document.addEventListener('pointerdown', unlockAudio)
+    document.addEventListener('keydown', unlockAudio)
+
     // Wall texture — brown brick
     const wallGfx = this.make.graphics({ x: 0, y: 0 })
     wallGfx.fillStyle(0x6b4226)

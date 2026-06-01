@@ -15,6 +15,7 @@ export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(null)
 
   const isLoggedIn = computed(() => !!token.value)
+  const isGuest = computed(() => !token.value)
 
   function init() {
     const saved = localStorage.getItem('auth')
@@ -49,5 +50,5 @@ export const useAuthStore = defineStore('auth', () => {
     return res.data
   }
 
-  return { user, token, isLoggedIn, init, setAuth, logout, login, register }
+  return { user, token, isLoggedIn, isGuest, init, setAuth, logout, login, register }
 })

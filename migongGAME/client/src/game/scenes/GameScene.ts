@@ -5,6 +5,8 @@ import { NPC } from '../entities/NPC'
 import { Hazard } from '../entities/Hazard'
 import { generateMaze, findPathMidpoint } from '../../utils/mazeGenerator'
 import { sampleLevels } from '../../utils/levelData'
+import { sfxHurt, sfxCheckpoint, sfxVictory, sfxDialogOpen, sfxChoice, sfxRestart, sfxTeleport, sfxStar } from '../../utils/sfx'
+import { ensureAmbient } from '../../utils/ambient'
 
 const WALL = 1
 const PATH = 0
@@ -48,6 +50,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
+    ensureAmbient(this)
     this.levelStartTime = Date.now()
 
     // Generate maze based on chapter difficulty
@@ -169,6 +172,7 @@ export class GameScene extends Phaser.Scene {
     // Hazard collision — send player back to start
     for (const hazard of this.hazards) {
       this.physics.add.overlap(this.player.sprite, hazard.sprite, () => {
+        sfxHurt()
         this.respawnPlayer()
       })
       this.physics.add.collider(hazard.sprite, this.wallGroup)
@@ -299,6 +303,7 @@ export class GameScene extends Phaser.Scene {
           }
         }
         this.showMessage('已激活复活点！', '#5b8c5a')
+        sfxCheckpoint()
       }
     }
 
@@ -314,8 +319,7 @@ export class GameScene extends Phaser.Scene {
 
   private showMessage(text: string, color = '#ff6666') {
     const cam = this.cameras.main
-    const y = cam.scrollY + 48
-    const msg = this.add.text(cam.scrollX + cam.width / 2, y, text, {
+    const msg = this.add.text(cam.width / 2, 48, text, {
       fontSize: '18px', fontFamily: 'Noto Sans SC, sans-serif', color,
       backgroundColor: '#00000088', padding: { x: 16, y: 8 },
     }).setOrigin(0.5, 0).setDepth(200).setScrollFactor(0)
@@ -345,6 +349,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private restartLevel() {
+    sfxRestart()
     this.cameras.main.fade(300, 0, 0, 0, false, (_cam: any, progress: number) => {
       if (progress >= 1) {
         this.scene.restart({ levelId: this.levelId })
@@ -354,9 +359,10 @@ export class GameScene extends Phaser.Scene {
 
   private showNPCDialog(npc: NPC) {
     this.isPaused = true
+    sfxDialogOpen()
     const cam = this.cameras.main
-    const cx = cam.scrollX + cam.width / 2
-    const cy = cam.scrollY + cam.height / 2
+    const cx = cam.width / 2
+    const cy = cam.height / 2
 
     const overlay = this.add.rectangle(cx, cy, cam.width, cam.height, 0x000000, 0.6)
       .setDepth(200).setScrollFactor(0)
@@ -417,6 +423,7 @@ export class GameScene extends Phaser.Scene {
         choiceButtons.push(btn)
 
         btn.on('pointerdown', () => {
+          sfxChoice()
           this.choiceResult = {
             starBonus: choice.starBonus || 0,
             hiddenNote: choice.hiddenNote || '',
@@ -452,6 +459,7 @@ export class GameScene extends Phaser.Scene {
 
   private onLevelComplete() {
     this.levelComplete = true
+    sfxVictory()
     const body = this.player.sprite.body as Phaser.Physics.Arcade.Body
     body.setVelocity(0)
 
@@ -472,8 +480,8 @@ export class GameScene extends Phaser.Scene {
     if (stars > 3) stars = 3
 
     const cam = this.cameras.main
-    const cx = cam.scrollX + cam.width / 2
-    const cy = cam.scrollY + cam.height / 2
+    const cx = cam.width / 2
+    const cy = cam.height / 2
 
     this.add.rectangle(cx, cy, cam.width, cam.height, 0x000000, 0.7).setDepth(300).setScrollFactor(0)
 
@@ -487,6 +495,10 @@ export class GameScene extends Phaser.Scene {
       this.add.text(cx, cy - 25, starStr, {
         fontSize: '28px', fontFamily: 'Noto Sans SC, sans-serif', color: '#ffd700',
       }).setOrigin(0.5).setDepth(301).setScrollFactor(0)
+      // Star appear sounds staggered
+      for (let s = 0; s < stars; s++) {
+        this.time.delayedCall(s * 300 + 600, () => sfxStar())
+      }
 
       this.add.text(cx, cy + 15, `用时 ${Math.floor(elapsed)}秒`, {
         fontSize: '14px', fontFamily: 'Noto Sans SC, sans-serif', color: '#cccccc',

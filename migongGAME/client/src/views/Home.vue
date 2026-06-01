@@ -44,6 +44,7 @@ import { useGameStore } from '@/stores/game'
 import GameContainer from '@/components/GameContainer.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { api } from '@/api'
+import { initAudio, sfxClick } from '@/utils/sfx'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -53,18 +54,22 @@ const showMenuScene = ref(false)
 onMounted(() => {
   auth.init()
   game.init()
+  document.addEventListener('pointerdown', () => initAudio(), { once: true })
 })
 
 function startGame() {
+  sfxClick()
   const nextLevel = game.progress.completedLevels.length + 1
   router.push(`/play/${Math.min(nextLevel, 60)}`)
 }
 
 function goLevels() {
+  sfxClick()
   router.push('/levels')
 }
 
 function goRouter(path: string) {
+  sfxClick()
   router.push(path)
 }
 

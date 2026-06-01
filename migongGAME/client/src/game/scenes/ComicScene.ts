@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { ensureAmbient } from '../../utils/ambient'
 
 interface ComicPanel {
   text: string
@@ -20,6 +21,7 @@ export class ComicScene extends Phaser.Scene {
   }
 
   create(data: { onComplete?: () => void }) {
+    ensureAmbient(this)
     const { width, height } = this.scale
     let currentPanel = 0
 

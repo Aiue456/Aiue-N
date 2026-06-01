@@ -1,4 +1,6 @@
 import Phaser from 'phaser'
+import { sfxScribble, sfxStar } from '../../utils/sfx'
+import { ensureAmbient } from '../../utils/ambient'
 
 export class NoteScene extends Phaser.Scene {
   constructor() {
@@ -6,6 +8,7 @@ export class NoteScene extends Phaser.Scene {
   }
 
   create(data: { levelId: number; noteText: string; noteDate: string; stars: number }) {
+    ensureAmbient(this)
     const { width, height } = this.scale
 
     // Sky gradient background
@@ -148,6 +151,7 @@ export class NoteScene extends Phaser.Scene {
     // Typing animation: row by row
     let currentRow = 0
     let charIdx = 0
+    let scribbleCounter = 0
     const totalChars = rows.reduce((s, r) => s + r.length, 0)
 
     this.time.addEvent({
@@ -157,6 +161,8 @@ export class NoteScene extends Phaser.Scene {
 
         if (charIdx < rows[currentRow].length) {
           charIdx++
+          scribbleCounter++
+          if (scribbleCounter % 3 === 0) sfxScribble()
           rowTexts[currentRow].setText(rows[currentRow].substring(0, charIdx))
           // Auto-shrink if overflow
           if (rowTexts[currentRow].height > rowH) {

@@ -7,3 +7,5 @@ Thumbs.db
 .claude/
 .idea/
 .npm-cache/
+*.tar.gz
+*.tsbuildinfo
