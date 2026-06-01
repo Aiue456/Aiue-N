@@ -40,6 +40,7 @@ export interface LevelConfig {
   action: string
   location: string
   stars: number
+  choices?: { text: string; response: string; starBonus?: number; hiddenNote?: string }[]
   mapData: { grid: number[][]; playerStart: { x: number; y: number }; exitPos: { x: number; y: number }; npcPositions: { x: number; y: number }[] }
 }
 

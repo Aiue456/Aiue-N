@@ -28,6 +28,9 @@ export const useGameStore = defineStore('game', () => {
     achievements: [],
   })
   const currentLevel = ref(0)
+  const saveVersion = ref(Number(localStorage.getItem('saveVersion') || 0))
+  const saveConflict = ref<any>(null)
+  const justUnlockedChapter = ref<number | null>(null)
 
   const chapterFirstLevels = [1, 11, 31]
 
@@ -64,11 +67,19 @@ export const useGameStore = defineStore('game', () => {
 
   function syncChapterUnlocks() {
     const total = progress.value.completedLevels.length
+    const prevUnlocked = [...progress.value.unlockedChapters]
     const unlocked: number[] = []
     if (total >= 10) unlocked.push(1)
     if (total >= 30) unlocked.push(2)
     if (total >= 60) unlocked.push(3)
     progress.value.unlockedChapters = unlocked
+    // Detect newly unlocked chapters
+    for (const id of unlocked) {
+      if (!prevUnlocked.includes(id)) {
+        justUnlockedChapter.value = id
+        setTimeout(() => { justUnlockedChapter.value = null }, 3000)
+      }
+    }
   }
 
   function completeLevel(levelId: number, stars: number) {
@@ -92,7 +103,20 @@ export const useGameStore = defineStore('game', () => {
 
   async function uploadSave() {
     try {
-      await api.post('/api/save', progress.value)
+      const res = await api.post('/api/save', { ...progress.value, clientVersion: saveVersion.value })
+      if (res.data?.conflict) {
+        saveConflict.value = {
+          localData: { ...progress.value },
+          cloudData: res.data.cloudData,
+          localVersion: res.data.localVersion,
+          cloudVersion: res.data.cloudVersion,
+        }
+        return
+      }
+      if (res.data?.version !== undefined) {
+        saveVersion.value = res.data.version
+        localStorage.setItem('saveVersion', String(saveVersion.value))
+      }
     } catch { /* offline */ }
   }
 
@@ -101,10 +125,34 @@ export const useGameStore = defineStore('game', () => {
       const res = await api.get('/api/save')
       if (res.data?.data) {
         progress.value = { ...progress.value, ...res.data.data }
+        if ((res.data.data as any).version !== undefined) {
+          saveVersion.value = (res.data.data as any).version
+          localStorage.setItem('saveVersion', String(saveVersion.value))
+        }
         save()
       }
     } catch { /* offline */ }
   }
 
-  return { progress, currentLevel, unlockedLevels, completedCount, totalStars, chapters, init, save, completeLevel, addNote, syncChapterUnlocks, uploadSave, downloadSave }
+  async function resolveConflict(choice: 'local' | 'cloud') {
+    if (!saveConflict.value) return
+    try {
+      await api.post('/api/save/resolve-conflict', {
+        choice,
+        cloudData: saveConflict.value.cloudData,
+        localData: saveConflict.value.localData,
+      })
+      if (choice === 'cloud') {
+        progress.value = { ...progress.value, ...saveConflict.value.cloudData }
+        saveVersion.value = saveConflict.value.cloudVersion + 1
+      } else {
+        saveVersion.value = saveConflict.value.localVersion + 1
+      }
+      localStorage.setItem('saveVersion', String(saveVersion.value))
+      save()
+    } catch { /* offline */ }
+    saveConflict.value = null
+  }
+
+  return { progress, currentLevel, saveVersion, saveConflict, justUnlockedChapter, unlockedLevels, completedCount, totalStars, chapters, init, save, completeLevel, addNote, syncChapterUnlocks, uploadSave, downloadSave, resolveConflict }
 })

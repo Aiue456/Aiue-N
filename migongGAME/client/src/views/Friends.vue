@@ -56,6 +56,8 @@
             <div class="friend-name">{{ f.username }}</div>
             <div class="friend-stats">通关 {{ f.completedLevels }} 关 · ⭐ {{ f.totalStars }}</div>
           </div>
+          <span v-if="isOnline(f.lastActiveAt)" class="online-status online">● 在线</span>
+          <span v-else class="online-status offline">离线</span>
           <el-button size="small" type="danger" plain @click="deleteFriend(f.id)">删除</el-button>
         </div>
       </div>
@@ -72,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { api } from '@/api'
@@ -84,11 +86,37 @@ const searchResults = ref<any[]>([])
 const friends = ref<any[]>([])
 const requests = ref<any[]>([])
 
+// Track lastActiveAt in friends data
+function isOnline(lastActiveAt: number | undefined): boolean {
+  return !!lastActiveAt && (Date.now() - lastActiveAt < 300000)
+}
+
+// Heartbeat polling
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null
+
+function startHeartbeat() {
+  stopHeartbeat()
+  heartbeatTimer = setInterval(async () => {
+    try {
+      await api.post('/api/users/heartbeat')
+    } catch {}
+  }, 30000)
+}
+
+function stopHeartbeat() {
+  if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null }
+}
+
 onMounted(() => {
   if (auth.isLoggedIn) {
     loadFriends()
     loadRequests()
+    startHeartbeat()
   }
+})
+
+onUnmounted(() => {
+  stopHeartbeat()
 })
 
 function formatTime(ts: number) {
@@ -201,6 +229,10 @@ async function deleteFriend(friendId: string) {
 .friend-info { flex: 1; min-width: 0; }
 .friend-name { font-weight: 600; color: #3e2723; }
 .friend-stats { font-size: 12px; color: #8b7355; margin-top: 2px; }
+
+.online-status { font-size: 12px; margin-left: auto; margin-right: 8px; }
+.online-status.online { color: #5b8c5a; }
+.online-status.offline { color: #aaa; }
 
 .empty { text-align: center; color: #8b7355; margin-top: 40px; }
 .empty p { font-size: 15px; }

@@ -32,6 +32,7 @@ export class GameScene extends Phaser.Scene {
   private timerText!: Phaser.GameObjects.Text
   private rKey!: Phaser.Input.Keyboard.Key
   private isPaused = false
+  private choiceResult: { starBonus: number; hiddenNote: string } | null = null
 
   constructor() {
     super({ key: 'GameScene' })
@@ -43,6 +44,7 @@ export class GameScene extends Phaser.Scene {
     this.isPaused = false
     this.npcs = []
     this.hazards = []
+    this.choiceResult = null
   }
 
   create() {
@@ -360,52 +362,92 @@ export class GameScene extends Phaser.Scene {
       .setDepth(200).setScrollFactor(0)
 
     const dialogW = cam.width * 0.78
-    const dialogH = 200
-    const dialogBg = this.add.rectangle(cx, cy + 80, dialogW, dialogH, 0xffffff, 0.95)
+    const dialogBg = this.add.rectangle(cx, cy + 80, dialogW, 200, 0xffffff, 0.95)
       .setDepth(201).setScrollFactor(0)
     dialogBg.setStrokeStyle(2, 0x5b8c5a)
 
     // NPC face icon
-    this.add.circle(cx - dialogW / 2 + 40, cy + 30, 22, 0xe8a87c).setDepth(202).setScrollFactor(0)
-    this.add.text(cx - dialogW / 2 + 40, cy + 30, npc.name[0], {
+    const faceCircle = this.add.circle(cx - dialogW / 2 + 40, cy + 30, 22, 0xe8a87c).setDepth(202).setScrollFactor(0)
+    const faceChar = this.add.text(cx - dialogW / 2 + 40, cy + 30, npc.name[0], {
       fontSize: '16px', fontFamily: 'Noto Sans SC, sans-serif', color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(202).setScrollFactor(0)
 
-    // Name
-    this.add.text(cx - dialogW / 2 + 70, cy + 18, npc.name, {
+    const nameText = this.add.text(cx - dialogW / 2 + 70, cy + 18, npc.name, {
       fontSize: '18px', fontFamily: 'Noto Sans SC, sans-serif', color: '#5b8c5a', fontStyle: 'bold',
     }).setDepth(202).setScrollFactor(0)
 
-    // Dialogue
-    this.add.text(cx, cy + 65, `"${npc.dialog}"`, {
+    const dialogText = this.add.text(cx, cy + 65, `"${npc.dialog}"`, {
       fontSize: '15px', fontFamily: 'Noto Sans SC, sans-serif', color: '#3e2723',
       wordWrap: { width: dialogW - 80 }, align: 'center', fontStyle: 'italic',
     }).setOrigin(0.5, 0).setDepth(202).setScrollFactor(0)
 
-    // Mission hint
-    this.add.text(cx, cy + 115, `任务：${npc.mission}`, {
+    const missionText = this.add.text(cx, cy + 115, `任务：${npc.mission}`, {
       fontSize: '13px', fontFamily: 'Noto Sans SC, sans-serif', color: '#e8a87c',
     }).setOrigin(0.5, 0).setDepth(202).setScrollFactor(0)
 
-    // Accept button
-    const acceptBtn = this.add.text(cx, cy + 155, '交给我吧！', {
-      fontSize: '17px', fontFamily: 'Noto Sans SC, sans-serif', color: '#ffffff',
-      backgroundColor: '#5b8c5a', padding: { x: 24, y: 8 },
-    }).setOrigin(0.5).setDepth(202).setScrollFactor(0).setInteractive({ useHandCursor: true })
+    const contentElements: Phaser.GameObjects.GameObject[] = [
+      faceCircle, faceChar, nameText, dialogText, missionText,
+    ]
 
-    // Collect all dialog elements for cleanup
-    const dialogElements: Phaser.GameObjects.GameObject[] = [overlay, dialogBg]
-    // Find all recently added depth-202 text/graphics
-    this.children.list
-      .filter((c) => (c as any).depth === 202)
-      .forEach((c) => dialogElements.push(c))
-
-    acceptBtn.on('pointerdown', () => {
-      dialogElements.forEach((e) => {
+    const destroyAll = (extra: Phaser.GameObjects.GameObject[] = []) => {
+      ;[...contentElements, ...extra].forEach((e) => {
         if (e && e.scene) e.destroy()
       })
+      if (overlay.scene) overlay.destroy()
+      if (dialogBg.scene) dialogBg.destroy()
       this.isPaused = false
-    })
+    }
+
+    const levelData = sampleLevels.find((l) => l.id === this.levelId)
+    const choices = levelData?.choices
+
+    if (choices && choices.length > 0) {
+      const btnSpacing = Math.min(220, (dialogW - 40) / choices.length)
+      const startX = cx - ((choices.length - 1) * btnSpacing) / 2
+      const btnY = cy + 158
+
+      const choiceButtons: Phaser.GameObjects.Text[] = []
+
+      choices.forEach((choice, i) => {
+        const btn = this.add.text(startX + i * btnSpacing, btnY, choice.text, {
+          fontSize: '13px', fontFamily: 'Noto Sans SC, sans-serif', color: '#ffffff',
+          backgroundColor: '#5b8c5a', padding: { x: 12, y: 6 },
+        }).setOrigin(0.5).setDepth(202).setScrollFactor(0).setInteractive({ useHandCursor: true })
+
+        choiceButtons.push(btn)
+
+        btn.on('pointerdown', () => {
+          this.choiceResult = {
+            starBonus: choice.starBonus || 0,
+            hiddenNote: choice.hiddenNote || '',
+          }
+
+          // Remove content and choice buttons
+          contentElements.forEach((e) => { if (e.scene) e.destroy() })
+          choiceButtons.forEach((b) => { if (b.scene) b.destroy() })
+
+          // Show response briefly inside dialog frame
+          const respText = this.add.text(cx, cy + 80, choice.response, {
+            fontSize: '16px', fontFamily: 'Noto Sans SC, sans-serif', color: '#3e2723',
+            wordWrap: { width: dialogW - 60 }, align: 'center',
+          }).setOrigin(0.5).setDepth(202).setScrollFactor(0)
+
+          this.time.delayedCall(1500, () => {
+            if (respText.scene) respText.destroy()
+            if (overlay.scene) overlay.destroy()
+            if (dialogBg.scene) dialogBg.destroy()
+            this.isPaused = false
+          })
+        })
+      })
+    } else {
+      const acceptBtn = this.add.text(cx, cy + 155, '交给我吧！', {
+        fontSize: '17px', fontFamily: 'Noto Sans SC, sans-serif', color: '#ffffff',
+        backgroundColor: '#5b8c5a', padding: { x: 24, y: 8 },
+      }).setOrigin(0.5).setDepth(202).setScrollFactor(0).setInteractive({ useHandCursor: true })
+
+      acceptBtn.on('pointerdown', () => destroyAll([acceptBtn]))
+    }
   }
 
   private onLevelComplete() {
@@ -425,6 +467,9 @@ export class GameScene extends Phaser.Scene {
     } else {
       starHint = '⏱ 90秒内通关可获得两颗星'
     }
+    // Add choice bonus
+    stars += this.choiceResult?.starBonus || 0
+    if (stars > 3) stars = 3
 
     const cam = this.cameras.main
     const cx = cam.scrollX + cam.width / 2
@@ -459,13 +504,15 @@ export class GameScene extends Phaser.Scene {
         }).setOrigin(0.5).setDepth(301).setScrollFactor(0)
       }
 
-      window.dispatchEvent(new CustomEvent('levelComplete', {
-        detail: {
-          levelId: this.levelId, stars,
-          noteDate: levelData?.noteDate || '',
-          postNote: levelData?.postNote || '',
-        },
-      }))
+      const lcDetail: any = {
+        levelId: this.levelId, stars,
+        noteDate: levelData?.noteDate || '',
+        postNote: levelData?.postNote || '',
+      }
+      if (this.choiceResult?.hiddenNote) {
+        lcDetail.hiddenNote = this.choiceResult.hiddenNote
+      }
+      window.dispatchEvent(new CustomEvent('levelComplete', { detail: lcDetail }))
 
       this.time.delayedCall(2000, () => {
         this.scene.start('NoteScene', {

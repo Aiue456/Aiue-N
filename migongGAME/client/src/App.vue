@@ -17,21 +17,66 @@
       </div>
     </div>
   </el-dialog>
+
+  <!-- Save conflict dialog -->
+  <el-dialog v-model="conflictDialogVisible" title="检测到存档冲突" width="420px" top="15vh">
+    <p>云端数据与本地数据不一致，请选择保留哪个版本：</p>
+    <div class="conflict-compare" v-if="game.saveConflict">
+      <div class="version-card local">
+        <h4>📱 本地存档</h4>
+        <p>通关 {{ game.saveConflict.localData?.completedLevels?.length || 0 }} 关</p>
+        <p>星数 {{ totalStars(game.saveConflict.localData?.levelStars) }}</p>
+      </div>
+      <div class="version-card cloud">
+        <h4>☁️ 云端存档</h4>
+        <p>通关 {{ game.saveConflict.cloudData?.completedLevels?.length || 0 }} 关</p>
+        <p>星数 {{ totalStars(game.saveConflict.cloudData?.levelStars) }}</p>
+      </div>
+    </div>
+    <template #footer>
+      <el-button @click="game.resolveConflict('local')" type="success">保留本地</el-button>
+      <el-button @click="game.resolveConflict('cloud')" type="primary">使用云端</el-button>
+    </template>
+  </el-dialog>
+
+  <!-- Chapter unlock dialog -->
+  <el-dialog v-model="showChapterDialog" title="新章节解锁!" width="360px" :close-on-click-modal="true" simple>
+    <div style="text-align: center; padding: 20px">
+      <div style="font-size: 48px; margin-bottom: 16px;">📖</div>
+      <h3 style="color: #5b8c5a; margin: 0;">{{ chapterName }}</h3>
+    </div>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onUnmounted, nextTick } from 'vue'
+import { ref, watch, computed, onUnmounted, nextTick } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useGameStore } from '@/stores/game'
 import { api } from '@/api'
 import { ElMessage } from 'element-plus'
 
 const auth = useAuthStore()
+const game = useGameStore()
 const showRequestDialog = ref(false)
+const showChapterDialog = ref(false)
+const chapterName = ref('')
+
+const chapterNames: Record<number, string> = {
+  1: '第一章·初遇温暖',
+  2: '第二章·并肩前行',
+  3: '第三章·传承时光',
+}
 const unseenRequests = ref<any[]>([])
 const seenIds = new Set<string>()
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
+const conflictDialogVisible = computed(() => !!game.saveConflict)
+
 auth.init()
+
+function totalStars(levelStars: Record<number, number>) {
+  return Object.values(levelStars || {}).reduce((a: number, b: number) => a + b, 0)
+}
 
 function formatTime(ts: number) {
   if (!ts) return ''
@@ -82,6 +127,16 @@ function stopPolling() {
     pollTimer = null
   }
 }
+
+watch(() => game.justUnlockedChapter, (val) => {
+  if (val !== null) {
+    chapterName.value = chapterNames[val] || ''
+    showChapterDialog.value = true
+    setTimeout(() => {
+      showChapterDialog.value = false
+    }, 3000)
+  }
+})
 
 watch(() => auth.isLoggedIn, (loggedIn) => {
   if (loggedIn) {
@@ -151,4 +206,20 @@ body {
 .notify-name { font-weight: 600; color: #3e2723; font-size: 15px; }
 .notify-time { font-size: 12px; color: #999; margin-top: 2px; }
 .notify-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+.conflict-compare {
+  display: flex;
+  gap: 16px;
+  margin-top: 16px;
+}
+.version-card {
+  flex: 1;
+  padding: 14px;
+  border-radius: 10px;
+  border: 2px solid #eee;
+}
+.version-card.local { border-color: #5b8c5a; }
+.version-card.cloud { border-color: #409eff; }
+.version-card h4 { margin-bottom: 8px; font-size: 14px; }
+.version-card p { font-size: 13px; color: #666; margin-bottom: 4px; }
 </style>

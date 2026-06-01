@@ -3,6 +3,9 @@
     <div class="auth-card">
       <h2>注册</h2>
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
+        <el-form-item label="昵称" prop="username">
+          <el-input v-model="form.username" placeholder="输入显示名称（2-12个字符）" />
+        </el-form-item>
         <el-form-item label="账号" prop="account">
           <el-input v-model="form.account" placeholder="设置登录账号（任意字符，如 xiaoming）" />
         </el-form-item>
@@ -35,7 +38,7 @@ const router = useRouter()
 const auth = useAuthStore()
 const loading = ref(false)
 
-const form = reactive({ account: '', password: '', confirmPassword: '' })
+const form = reactive({ username: '', account: '', password: '', confirmPassword: '' })
 
 const validateConfirm = (_rule: any, value: string, cb: any) => {
   if (value !== form.password) cb(new Error('两次密码输入不一致'))
@@ -43,6 +46,7 @@ const validateConfirm = (_rule: any, value: string, cb: any) => {
 }
 
 const rules = {
+  username: [{ required: true }, { min: 2, max: 12, message: '昵称2-12个字符' }],
   account: [{ required: true, message: '请设置账号', trigger: 'blur' }, { min: 3, max: 30, message: '账号3-30个字符', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }, { min: 6, max: 32, message: '密码6-32个字符', trigger: 'blur' }],
   confirmPassword: [{ required: true, message: '请确认密码', trigger: 'blur' }, { validator: validateConfirm, trigger: 'blur' }],
@@ -51,7 +55,7 @@ const rules = {
 async function handleRegister() {
   loading.value = true
   try {
-    await auth.register(form.account, form.account, form.password)
+    await auth.register(form.username, form.account, form.password)
     ElMessage.success('注册成功，账号：' + form.account)
     router.push('/')
   } catch (e: any) {

@@ -10,6 +10,7 @@ export class User extends Document {
   @Prop({ default: Date.now }) createdAt: number
   @Prop({ default: Date.now }) lastLoginAt: number
   @Prop({ default: false }) isGuest: boolean
+  @Prop({ default: function() { return Date.now() } }) lastActiveAt: number
 }
 
 export const UserSchema = SchemaFactory.createForClass(User)

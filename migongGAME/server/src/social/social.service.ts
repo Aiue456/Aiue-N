@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
-import { Friend, User, GameProgress } from '../schemas'
+import { Friend, User, GameProgress, Achievement } from '../schemas'
 
 @Injectable()
 export class SocialService {
@@ -9,6 +9,7 @@ export class SocialService {
     @InjectModel(Friend.name) private friendModel: Model<Friend>,
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(GameProgress.name) private gameProgressModel: Model<GameProgress>,
+    @InjectModel(Achievement.name) private achievementModel: Model<Achievement>,
   ) {}
 
   async getLeaderboard(sort = 'stars', page = 1, limit = 20) {
@@ -98,5 +99,16 @@ export class SocialService {
   async searchUsers(keyword: string) {
     const users = await this.userModel.find({ username: { $regex: keyword, $options: 'i' } }).limit(20).exec()
     return users.map((u) => ({ _id: u._id, username: u.username, avatar: u.avatar }))
+  }
+
+  async getAchievements() {
+    const achievements = await this.achievementModel.find().exec()
+    return { success: true, data: achievements }
+  }
+
+  async getUserAchievements(userId: string) {
+    const progress = await this.gameProgressModel.findOne({ userId }).exec()
+    const unlockedIds = progress?.achievements?.map((a: any) => a.id || a) || []
+    return { success: true, data: unlockedIds }
   }
 }

@@ -10,6 +10,7 @@
         <el-button type="info" size="large" @click="goRouter('/notebook')">好人好事笔记本</el-button>
       </div>
       <div class="bottom-nav">
+        <el-button text @click="goRouter('/achievements')">成就</el-button>
         <el-button text @click="goRouter('/leaderboard')">排行榜</el-button>
         <el-button text @click="goRouter('/friends')">好友</el-button>
         <el-button v-if="!auth.isLoggedIn" text @click="goRouter('/login')">登录</el-button>
@@ -20,6 +21,7 @@
               <el-dropdown-item command="profile">个人信息</el-dropdown-item>
               <el-dropdown-item command="save">上传存档</el-dropdown-item>
               <el-dropdown-item command="load">下载存档</el-dropdown-item>
+              <el-dropdown-item command="history">存档历史</el-dropdown-item>
               <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -40,6 +42,8 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useGameStore } from '@/stores/game'
 import GameContainer from '@/components/GameContainer.vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { api } from '@/api'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -68,14 +72,46 @@ function handleNavigate(e: CustomEvent) {
   router.push(e.detail)
 }
 
-function handleUserCmd(cmd: string) {
-  if (cmd === 'logout') {
+async function handleUserCmd(cmd: string) {
+  if (cmd === 'profile') {
+    goRouter('/profile')
+  } else if (cmd === 'logout') {
     auth.logout()
     router.go(0)
   } else if (cmd === 'save') {
     game.uploadSave()
   } else if (cmd === 'load') {
     game.downloadSave()
+  } else if (cmd === 'history') {
+    try {
+      const res = await api.get('/api/save/history')
+      const data: any[] = res.data?.data || []
+      if (data.length === 0) {
+        ElMessage.info('暂无历史存档')
+        return
+      }
+      const items = data.map(h =>
+        `V${h.version} — ${new Date(h.createdAt).toLocaleString('zh-CN')} — ${h.completedLevels}关 ⭐${h.totalStars}`
+      ).join('\n')
+      ElMessageBox.prompt('点击版本号可恢复：\n' + items, '存档历史', {
+        inputPlaceholder: '输入要恢复的版本号',
+        inputPattern: /^\d+$/,
+        inputErrorMessage: '请输入数字版本号',
+        confirmButtonText: '恢复',
+        cancelButtonText: '取消',
+      }).then(async ({ value }) => {
+        if (!value) return
+        try {
+          await api.post(`/api/save/restore/${value}`)
+          ElMessage.success('存档已恢复，请重新下载存档')
+          await game.downloadSave()
+        } catch (e: any) {
+          ElMessage.error(e.response?.data?.message || '恢复失败')
+        }
+      }).catch(() => {})
+    } catch {
+      ElMessage.error('获取历史存档失败')
+    }
   }
 }
 </script>

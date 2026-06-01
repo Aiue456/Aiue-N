@@ -1,30 +1,21 @@
-import { Controller, Post, Body, Logger } from '@nestjs/common'
+import { Controller, Post, Body } from '@nestjs/common'
+import { Throttle } from '@nestjs/throttler'
 import { AuthService } from './auth.service'
+import { RegisterDto, LoginDto } from './dto'
 
 @Controller('auth')
 export class AuthController {
-  private logger = new Logger('Auth')
-
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  register(@Body() body: any) {
-    const account = body.account || body.email
-    this.logger.log(`REGISTER username=${body.username} account=${account} keys=${Object.keys(body).join(',')}`)
-    return this.authService.register({
-      username: body.username,
-      account,
-      password: body.password,
-    })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto)
   }
 
   @Post('login')
-  login(@Body() body: any) {
-    const account = body.account || body.email
-    this.logger.log(`LOGIN account=${account} password_len=${body.password?.length || 0} keys=${Object.keys(body).join(',')}`)
-    return this.authService.login({
-      account,
-      password: body.password,
-    })
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  login(@Body() dto: LoginDto) {
+    return this.authService.login(dto)
   }
 }

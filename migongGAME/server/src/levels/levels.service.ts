@@ -1,12 +1,16 @@
 import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
-import { Level } from '../schemas'
+import { Level, Achievement } from '../schemas'
 import { levelSeeds } from './seed'
+import { achievementSeeds } from './achievement-seed'
 
 @Injectable()
 export class LevelsService implements OnModuleInit {
-  constructor(@InjectModel(Level.name) private levelModel: Model<Level>) {}
+  constructor(
+    @InjectModel(Level.name) private levelModel: Model<Level>,
+    @InjectModel(Achievement.name) private achievementModel: Model<Achievement>,
+  ) {}
 
   async onModuleInit() {
     for (const seed of levelSeeds) {
@@ -16,6 +20,14 @@ export class LevelsService implements OnModuleInit {
       }
     }
     console.log(`${levelSeeds.length} levels seeded.`)
+
+    for (const seed of achievementSeeds) {
+      const exists = await this.achievementModel.findOne({ id: seed.id }).exec()
+      if (!exists) {
+        await this.achievementModel.create(seed)
+      }
+    }
+    console.log(`${achievementSeeds.length} achievements seeded.`)
   }
 
   async findAll() {
